@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function, unicode_liter
 __version__ = 0.01
 __author__ = 'Vlad Popovici'
 
+__all__ = ['tissue_region_from_rgb', 'tissue_components', 'superpixels']
 
 import numpy as np
 
@@ -105,8 +106,8 @@ def tissue_components(_img, _models, _min_prob=0.4999999999):
     prbs[:,1] = _models['chromatin'].predict_proba(_img.reshape((-1,3)))[:,1]
     prbs[:,2] = _models['connective'].predict_proba(_img.reshape((-1,3)))[:,1]
     prbs[:,3]  = _models['fat'].predict_proba(_img.reshape((-1,3)))[:,1]
-
-    comp_map = np.argmax(prbs, 0)   # 0 = background, 1 = chromatin, 2 = connective, 3 = fat
+    
+    comp_map = np.argmax(prbs, axis=1)   # 0 = background, 1 = chromatin, 2 = connective, 3 = fat
     comp_map = comp_map.reshape((w, h))
 
     return comp_map
@@ -129,7 +130,7 @@ def superpixels(img, slide_magnif='x40'):
     :return: numpy.ndarray
       The RGB super-pixel image.
     """
-    params = dict([('x40', dict([('n_segments', int(10*np.log2(img.size/3))), ('compactness', 50), ('sigma', 2.0)])),
+    params = dict([('x40', dict([('n_segments', int(100*np.log2(img.size/3))), ('compactness', 1000), ('sigma', 0.0)])),
                    ('x20', dict([('n_segments', int(100*np.log2(img.size/3))), ('compactness', 50), ('sigma', 1.5)]))])
 
     p = params[slide_magnif]

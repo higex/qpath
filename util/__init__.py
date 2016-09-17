@@ -1,1 +1,1 @@
-__author__ = 'chief'
+__author__ = 'Vlad Popovici'
