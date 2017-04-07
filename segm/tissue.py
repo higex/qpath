@@ -7,20 +7,23 @@ from __future__ import (absolute_import, division, print_function, unicode_liter
 __version__ = 0.01
 __author__ = 'Vlad Popovici'
 
-__all__ = ['tissue_region_from_rgb', 'tissue_components', 'superpixels']
+__all__ = ['tissue_region_from_rgb', 'tissue_mask', 'tissue_components', 'superpixels']
 
 import numpy as np
 
 import skimage.morphology as skm
+import skimage.color
 from skimage.segmentation import slic
 from skimage.util import img_as_bool
 
 from sklearn.cluster import MiniBatchKMeans
+from sklearn.mixture import GMM as GMM
 
 import mahotas as mh
 
 from util.intensity import _R, _G, _B
 from stain.he import rgb2he2
+from segm.basic import bounding_box
 
 
 def tissue_region_from_rgb(_img, _min_area=150, _g_th=None):
@@ -78,6 +81,55 @@ def tissue_region_from_rgb(_img, _min_area=150, _g_th=None):
 
     return img_as_bool(mask), _g_th
 # tissue_region_from_rgb
+
+
+def tissue_mask(im_rgb, percent=0.25, min_tissue_probability=None):
+    """
+    TISSUE_MASK segment the foreground (tissue) of a slide. The segmentation
+    is based on a mixture Gaussian model (with two components) fit on the 
+    intensity levels of the pixels in the image.
+    
+    Parameters
+    ----------
+       im_rgb: array_like
+        An RGB image.
+       percent: double, optional
+        Proportion of pixels to be sampled from the image that will be used
+        in fitting the Gaussian mixture. Default: 0.25
+       min_tissue_probability: double, optional
+        The minimum probability for a pixel to be considered part of the tissue.
+        If None, the maximum a posteriori is used for classification. Default: None
+        
+    Returns
+    -------
+       im_mask: array_like
+        A binary image with 1s for tissue region.
+       bbox: tuple
+        A tuple with the coordinates of the tissue bounding box.
+        
+    See also
+    --------
+       segm.tissue_region_from_rgb
+    """
+
+    im = skimage.color.rgb2gray(im_rgb)
+    px = im.flatten()
+    ix = np.random.randint(0, px.size, int(percent*px.size))
+
+    gmm = GMM(n_components=2, covariance_type='diag', n_init=10)
+    gmm.fit(px[ix].reshape((-1, 1)))  # GMM needs a 2D array, just make it a single column matrix
+
+    # check which component corresponds to tissue. Hypothesis: tissue has a higher mean
+    fgd_idx = 1 if gmm.means_[0] < gmm.means_[1] else 0
+
+    if min_tissue_probability is None:
+        p = (gmm.predict(px) == fgd_idx).astype(np.uint8)
+    else:
+        p = (gmm.predict_proba(px)[:, fgd_idx] >= min_tissue_probability).astype(np.uint8)
+
+    im_mask = p.reshape(im.shape)
+
+    return im_mask, bounding_box(im_mask, th=0)
 
 
 def tissue_components(_img, _models, _min_prob=0.4999999999):
@@ -149,3 +201,4 @@ def superpixels(img, slide_magnif='x40'):
 
     return img_res
 # end superpixels
+

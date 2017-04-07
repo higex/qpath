@@ -23,7 +23,7 @@ def bounding_box(image, th=0):
     Parameters
     ----------
     image: a 2D image (ndarray): everything above <th> is considered foreground.
-        No test for connectiveness is performed.
+        No test for connectivity is performed.
 
     th: integer
         The threshold above which a pixel is considered to belong to an
